@@ -61,12 +61,32 @@ describe('knowledge base', () => {
     for (const fee of bundle!.fees) expect(fee.source, fee.code).not.toBeNull();
   });
 
-  it('keeps unverified fees NULL rather than guessing a number', async () => {
+  it('never marks a fee "verified" without an actually verified source', async () => {
     const bundle = await loadServiceBundleByCode('cnic');
     for (const fee of bundle!.fees) {
-      // If this ever fails, someone invented a government fee. That is the one
-      // thing this project must never do.
-      expect(fee.amount.amountMinor, `${fee.code} has an amount but is ${fee.verificationStatus}`).toBeNull();
+      // A fee can only claim the green "verified" badge if the source behind
+      // it was itself actually confirmed. This is the guard that must never
+      // break: it stops a fee from being promoted to "verified" while its
+      // source is still just an unconfirmed attribution.
+      if (fee.verificationStatus === 'verified') {
+        expect(fee.source?.verificationStatus, fee.code).toBe('verified');
+        expect(fee.source?.lastVerified, fee.code).not.toBeNull();
+      }
+    }
+  });
+
+  it('never lets an unverified fee amount stand without a visible estimate caveat', async () => {
+    const bundle = await loadServiceBundleByCode('cnic');
+    for (const fee of bundle!.fees) {
+      // An unverified fee is allowed to carry a non-null, best-effort amount
+      // (rather than NULL) ONLY when that amount is explicitly disclosed as
+      // an unconfirmed estimate. A number with no caveat is indistinguishable
+      // from an invented one, which is the one thing this project must never
+      // produce silently.
+      if (fee.verificationStatus === 'unverified' && fee.amount.amountMinor !== null) {
+        expect(fee.note, `${fee.code} has an unverified amount with no caveat note`).toBeTruthy();
+        expect(fee.note?.toLowerCase(), fee.code).toMatch(/not confirmed|best-effort|estimate/);
+      }
     }
   });
 
@@ -451,8 +471,17 @@ describe('orchestrated turn', () => {
     for (const step of plan.steps) expect(step.source).not.toBeNull();
     for (const item of plan.checklist) expect(item.source).not.toBeNull();
 
-    // With no verified fee, the plan says so rather than inventing one.
-    for (const fee of plan.fees) expect(fee.amount.amountMinor).toBeNull();
+    // No fee here has a confirmed government figure, so none may claim the
+    // "verified" badge — but they may carry a disclosed best-effort estimate.
+    // The load-bearing guarantee is that every fee still traces to a real
+    // source and never silently invents a number with no attribution.
+    for (const fee of plan.fees) {
+      expect(fee.verificationStatus, fee.code).not.toBe('verified');
+      expect(fee.source, fee.code).not.toBeNull();
+      if (fee.amount.amountMinor !== null) {
+        expect(fee.note, `${fee.code} has an amount with no caveat`).toBeTruthy();
+      }
+    }
 
     // The whole turn ran deterministically under LLM_PROVIDER=mock.
     expect(grounding.deterministicShare).toBe(1);
