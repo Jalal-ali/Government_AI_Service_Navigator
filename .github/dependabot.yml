@@ -1,0 +1,104 @@
+# Dependency updates.
+#
+# Two rules shape this file, both learned from the first batch it produced.
+#
+# Group anything that must move together. `vitest` and `@vitest/coverage-v8`
+# are version-locked by a peer dependency; splitting them across two pull
+# requests produces a guaranteed ERESOLVE, which is what happened.
+#
+# Patch and minor updates arrive automatically. Major updates do not, for
+# runtimes and frameworks — a Node or Next major is a deliberate decision with
+# testing attached, not something to review at the bottom of a weekly batch.
+# Dependabot proposed jumping the base image from Node 22 to Node 26 in its
+# first run; that is exactly the update that should never open itself.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      # Next, React and the types that track them share a release cadence.
+      # Updated separately, none of them can pass CI alone.
+      next-react:
+        patterns:
+          - next
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+          - eslint-config-next
+      # `@vitest/*` belongs here with vitest itself — its version must match.
+      dev-tooling:
+        patterns:
+          - 'eslint*'
+          - typescript
+          - vitest
+          - '@vitest/*'
+          - tailwindcss
+          - postcss
+          - autoprefixer
+          - tsx
+          - '@types/*'
+        exclude-patterns:
+          - '@types/react'
+          - '@types/react-dom'
+      production:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - next
+          - react
+          - react-dom
+          - 'eslint*'
+          - typescript
+          - vitest
+          - '@vitest/*'
+          - tailwindcss
+          - postcss
+          - autoprefixer
+          - tsx
+          - '@types/*'
+    ignore:
+      # Every npm major is a planned migration, not a weekly review item.
+      # The first batches proved the per-package list unwinnable: zod 3->4,
+      # TypeScript 5->7, eslint 8->10 and a 0.2->0.5 pglite jump all arrived
+      # bundled with routine bumps, and every one failed CI. Patch and minor
+      # updates keep flowing automatically; majors are done deliberately,
+      # one at a time, with their migration guides open.
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+      # pglite is still 0.x, where semver calls breaking changes "minor":
+      # 0.2 -> 0.5 sailed past the major rule above and failed the build.
+      # Patches still arrive; anything larger is a deliberate migration.
+      - dependency-name: '@electric-sql/pglite'
+        update-types: [version-update:semver-minor]
+    commit-message:
+      prefix: deps
+      prefix-development: deps(dev)
+
+  # Action majors are usually runner-runtime updates, and those are worth
+  # taking — CI currently warns that several actions still target Node 20.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    ignore:
+      # The Node major in the image is pinned to what CI and .nvmrc use.
+      # Moving it is a decision made in all three places at once.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: docker

@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# runtime data
+.pgdata/
+.pglite/
+.cache/
+data/models/
+eval/report/*.html
+eval/report/*.json
+!eval/report/.gitkeep
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+.vercel
+.env*
+
+# Claude Code local config (dev-server launch profile)
+.claude/
+
+# Coverage output
+/coverage
